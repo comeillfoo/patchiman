@@ -58,8 +58,8 @@ def init_dirs(tmpdir, source) -> Tuple[str, str]:
             _echo(f'{directory} exists')
 
     dira, dirb = _make_pathes(tmpdir)
-    shutil.copytree(source, dira)
-    shutil.copytree(dira, dirb)
+    _redeploy(source, dira)
+    _redeploy(dira, dirb)
     _isdirs_or_die(dira, dirb)
     return dira, dirb
 
