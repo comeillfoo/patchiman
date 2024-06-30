@@ -79,7 +79,7 @@ def cli(verbose: bool):
 @cli.command()
 @click.option('-C', '--directory', default=os.getcwd(),
               type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              help='Path where compared directories (a, b)')
+              help='Path to project directory')
 @click.argument('patches', nargs=-1,
                 type=click.Path(exists=True))
 def apply(directory: str, patches):
@@ -102,7 +102,7 @@ def apply(directory: str, patches):
 @cli.command()
 @click.option('-C', '--directory', default=os.getcwd(),
               type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              help='Path where compared directories (a, b)')
+              help='Path to project directory')
 @click.argument('patches', nargs=-1,
                 type=click.Path(exists=True))
 def dehunk(directory: str, patches):
@@ -116,22 +116,32 @@ def dehunk(directory: str, patches):
             rc = _patch(_echo, dirb, patch, ['-d'])
             _print_result(patch, rc)
             if rc == PatchResult.HUNK_SUCCEED:
-                # with hunks to .orig
-                shutil.copyfile(patch, patch + '.orig')
-                dehunked = _diff(_echo, dira, dirb, ['-x', '*.orig'])
+                shutil.copyfile(patch, patch + '.orig') # with hunks to .orig
+                # apply previous applied patch
+                for applied_patch in applied:
+                    _patch(_echo, dira, applied_patch, ['-d'])
+
+                # create dehunked patch
+                old_pwd = os.getcwd()
+                os.chdir(tmpdir)
+                dehunked = _diff(_echo, 'a', 'b', ['-x', '*.orig'])
+                os.chdir(old_pwd)
+
                 if dehunked is None:
                     click.echo(f'Failed to dehunk {patch}')
                     exit(fails)
                 with open(patch, 'w') as p:
                     p.write(dehunked)
+
+                _redeploy(directory, dira)
                 applied.append(patch)
             elif rc == PatchResult.OK:
-                applied.append(patch)
                 _echo(f'no hunks for {patch} -- SKIP')
+                applied.append(patch)
             else:
                 fails += 1
                 applied = []
-        _redeploy(dira, dirb)
+                _redeploy(dira, dirb)
         return fails
 
     exit(at_tempdir(do_dehunk))
