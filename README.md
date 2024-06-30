@@ -4,7 +4,7 @@ Patch manager
 
 ## Usage:
 
-`patman [OPTIONS] COMMAND [ARGS]...`
+`patchiman [OPTIONS] COMMAND [ARGS]...`
 
 ## Options:
   * `-v, --verbose`
