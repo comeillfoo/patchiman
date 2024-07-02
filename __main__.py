@@ -5,6 +5,8 @@ import errno
 import shutil
 import click
 import tempfile
+import logclick as logging
+
 
 from wrappers import _patch, _revert, _diff, PatchResult, PATCH_ERROR_REASONS
 
@@ -25,11 +27,7 @@ class TextStyle:
 OK = f'{TextStyle.BOLD}{TextStyle.GREEN}\u2713{TextStyle.END}'
 NOTOK = f'{TextStyle.BOLD}{TextStyle.RED}\u2717{TextStyle.END}'
 WARN = f'{TextStyle.BOLD}{TextStyle.YELLOW}\u26a0{TextStyle.END}'
-VERBOSE = False
-
-
-def _echo(text: str):
-    if VERBOSE: click.echo(text)
+VERBOSE = 0
 
 
 def _print_result(patch: str, rc: PatchResult = PatchResult.ERROR):
@@ -42,7 +40,7 @@ def _print_result(patch: str, rc: PatchResult = PatchResult.ERROR):
 
 
 def _redeploy(src: str, dst: str):
-    shutil.rmtree(dst)
+    shutil.rmtree(dst, ignore_errors=True)
     shutil.copytree(src, dst)
 
 
@@ -53,9 +51,9 @@ def init_dirs(tmpdir, source) -> Tuple[str, str]:
     def _isdirs_or_die(*directories):
         for directory in directories:
             if not os.path.isdir(directory):
-                click.echo(f'{directory} not found')
+                logging.error(f'{directory} not found')
                 exit(errno.ENOENT)
-            _echo(f'{directory} exists')
+            logging.info(f'{directory} exists')
 
     dira, dirb = _make_pathes(tmpdir)
     _redeploy(source, dira)
@@ -71,9 +69,10 @@ def at_tempdir(callback) -> int:
 
 @click.group()
 @click.option('-v', '--verbose', count=True, help='Output extra information.')
-def cli(verbose: bool):
-    global VERBOSE
-    VERBOSE = verbose
+def cli(verbose: int):
+    verbose += logging.get_loglevel().value
+    new_log_level = logging.LogClickLevel.from_int(verbose)
+    logging.set_loglevel(new_log_level)
 
 
 @cli.command()
@@ -89,7 +88,7 @@ def apply(directory: str, patches):
         dira, dirb = init_dirs(tmpdir, directory)
 
         for patch in patches:
-            rc = _patch(_echo, dirb, patch, ['-d'])
+            rc = _patch(dirb, patch, ['-d'])
             _print_result(patch, rc)
             if not rc.is_ok():
                 fails += 1
@@ -113,22 +112,22 @@ def dehunk(directory: str, patches):
         applied = []
 
         for patch in patches:
-            rc = _patch(_echo, dirb, patch, ['-d'])
+            rc = _patch(dirb, patch, ['-d'])
             _print_result(patch, rc)
             if rc == PatchResult.HUNK_SUCCEED:
                 shutil.copyfile(patch, patch + '.orig') # with hunks to .orig
                 # apply previous applied patch
                 for applied_patch in applied:
-                    _patch(_echo, dira, applied_patch, ['-d'])
+                    _patch(dira, applied_patch, ['-d'])
 
                 # create dehunked patch
                 old_pwd = os.getcwd()
                 os.chdir(tmpdir)
-                dehunked = _diff(_echo, 'a', 'b', ['-x', '*.orig'])
+                dehunked = _diff('a', 'b', ['-x', '*.orig'])
                 os.chdir(old_pwd)
 
                 if dehunked is None:
-                    click.echo(f'Failed to dehunk {patch}')
+                    logging.fatal(f'Failed to dehunk {patch}')
                     exit(fails)
                 with open(patch, 'w') as p:
                     p.write(dehunked)
@@ -136,7 +135,7 @@ def dehunk(directory: str, patches):
                 _redeploy(directory, dira)
                 applied.append(patch)
             elif rc == PatchResult.OK:
-                _echo(f'no hunks for {patch} -- SKIP')
+                logging.warn(f'no hunks for {patch} -- SKIP')
                 applied.append(patch)
             else:
                 fails += 1
@@ -156,7 +155,7 @@ def dehunk(directory: str, patches):
 def revert(directory: str, patches):
     """Reverts patches."""
     for patch in reversed(patches):
-        _echo(f'reverting {patch}...')
+        logging.command(f'reverting {patch}...')
         rc = _revert(directory, patch, ['-d'])
         _print_result(patch, rc)
         if not rc.is_ok():
