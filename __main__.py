@@ -150,8 +150,7 @@ def dehunk(directory: str, patches):
 @click.option('-C', '--directory', default=os.getcwd(),
               type=click.Path(exists=True, file_okay=False, writable=True),
               help='Patched directory')
-@click.argument('patches', nargs=-1,
-                type=click.Path(exists=True, dir_okay=False))
+@click.argument('patches', nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def revert(directory: str, patches: list[str]):
     """Reverts patches."""
     for patch in reversed(patches):
@@ -163,16 +162,49 @@ def revert(directory: str, patches: list[str]):
 
 
 @cli.command()
-@click.argument('project', type=click.Path(exists=True, file_okay=False,
-                                           writable=True))
+@click.option('-C', '--project', default=os.getcwd(), help='Project directory',
+                type=click.Path(exists=True, file_okay=False, writable=True))
 def init(project: str):
     '''Initializes patches storage'''
     is_ok, error_msg = storage.init(project)
     if not is_ok:
-        logging.command('patches storage not initialized: ' + error_msg)
+        logging.error('patches storage not initialized: ' + error_msg)
         exit(1)
     logging.command('patches storage initialized')
 
+
+def check_storage(project_root: str):
+    is_ok, err_msg = storage.test(project_root)
+    if not is_ok:
+        logging.error('unable to proceed: ' + err_msg)
+        exit(1)
+
+
+@cli.command()
+@click.option('-C', '--project', default=os.getcwd(), help='Project directory',
+                type=click.Path(exists=True, file_okay=False, writable=True))
+@click.argument('patches', nargs=-1, type=click.Path())
+def postpone(project: str, patches: list[str]):
+    '''Postpones patches'''
+    check_storage(project)
+
+    for patch in patches:
+        is_ok, err_msg = storage.postpone(project, patch)
+        if not is_ok:
+            logging.warn('unable to postpone ' + patch + ' (SKIP): ' + err_msg)
+        logging.command(patch + ' postponed')
+
+
+@cli.command()
+@click.option('-C', '--project', default=os.getcwd(), help='Project directory',
+                type=click.Path(exists=True, file_okay=False, writable=True))
+def relink(project: str):
+    '''Symlinks committed patches to project directory'''
+    check_storage(project)
+    is_ok, err_msg = storage.relink(project)
+    if not is_ok:
+        logging.error('unable to relink: ' + err_msg)
+    logging.command('relink finished')
 
 if __name__ == '__main__':
     cli()
