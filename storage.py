@@ -2,12 +2,21 @@
 import shutil
 import os
 from typing import Tuple
+from enum import Enum
 
 import logclick as logging
 
+class StrEnum(str, Enum):
+    pass
+
+class PatchesCategories(StrEnum):
+    COMMITTED = 'committed'
+    POSTPONED = 'postponed'
+    ORIGINAL = 'original'
+
 
 STORAGE_ROOT = '.patchiman'
-PATCHES_CATEGORIES = [ 'committed', 'postponed', 'original' ]
+
 
 _is_patch = lambda path: str.endswith(path, '.patch')
 _storage_path = lambda root: os.path.join(root, STORAGE_ROOT)
@@ -17,8 +26,8 @@ def test(project_root: str) -> Tuple[bool, str]:
     storage_path = _storage_path(project_root)
     if not os.path.isdir(storage_path):
         return False, 'storage not exists'
-    for patches_category in PATCHES_CATEGORIES:
-        category_path = os.path.join(storage_path, patches_category)
+    for patches_category in PatchesCategories:
+        category_path = os.path.join(storage_path, patches_category.value)
         if not os.path.isdir(category_path):
             return False, 'broken storage, ' + patches_category + ' not found'
     return True, ''
@@ -51,8 +60,8 @@ def relink(project_root: str) -> Tuple[bool, str]:
 def init(project_root: str) -> Tuple[bool, str]:
     storage_path = _storage_path(project_root)
     shutil.rmtree(storage_path, ignore_errors=True)
-    for patches_category in PATCHES_CATEGORIES:
-        category_path = os.path.join(storage_path, patches_category)
+    for patches_category in PatchesCategories:
+        category_path = os.path.join(storage_path, patches_category.value)
         os.makedirs(category_path)
         logging.subcommand(f'{patches_category} initialized')
     return True, ''
