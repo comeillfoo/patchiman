@@ -6,7 +6,7 @@ import shutil
 import click
 import tempfile
 import logclick as logging
-
+import storage
 
 from wrappers import _patch, _revert, _diff, PatchResult, PATCH_ERROR_REASONS
 
@@ -77,10 +77,10 @@ def cli(verbose: int):
 
 @cli.command()
 @click.option('-C', '--directory', default=os.getcwd(),
-              type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              type=click.Path(exists=True, file_okay=False),
               help='Path to project directory')
 @click.argument('patches', nargs=-1,
-                type=click.Path(exists=True))
+                type=click.Path(exists=True, dir_okay=False))
 def apply(directory: str, patches):
     """Tries to apply patches."""
     def do_apply(tmpdir) -> int:
@@ -100,10 +100,10 @@ def apply(directory: str, patches):
 
 @cli.command()
 @click.option('-C', '--directory', default=os.getcwd(),
-              type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              type=click.Path(exists=True, file_okay=False),
               help='Path to project directory')
 @click.argument('patches', nargs=-1,
-                type=click.Path(exists=True))
+                type=click.Path(exists=True, dir_okay=False))
 def dehunk(directory: str, patches):
     """Excludes succesful hunks in patches."""
     def do_dehunk(tmpdir) -> int:
@@ -148,11 +148,11 @@ def dehunk(directory: str, patches):
 
 @cli.command()
 @click.option('-C', '--directory', default=os.getcwd(),
-              type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              type=click.Path(exists=True, file_okay=False, writable=True),
               help='Patched directory')
 @click.argument('patches', nargs=-1,
-                type=click.Path(exists=True))
-def revert(directory: str, patches):
+                type=click.Path(exists=True, dir_okay=False))
+def revert(directory: str, patches: list[str]):
     """Reverts patches."""
     for patch in reversed(patches):
         logging.command(f'reverting {patch}...')
@@ -160,6 +160,18 @@ def revert(directory: str, patches):
         _print_result(patch, rc)
         if not rc.is_ok():
             exit(1)
+
+
+@cli.command()
+@click.argument('project', type=click.Path(exists=True, file_okay=False,
+                                           writable=True))
+def init(project: str):
+    '''Initializes patches storage'''
+    is_ok, error_msg = storage.init(project)
+    if not is_ok:
+        logging.command('patches storage not initialized: ' + error_msg)
+        exit(1)
+    logging.command('patches storage initialized')
 
 
 if __name__ == '__main__':
