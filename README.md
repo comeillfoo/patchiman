@@ -7,6 +7,24 @@ as storage. A storage arranges patches into next categories:
 - `original` - first versions of patches
 - `postponed` - set of deferred patches because of inapplicability
 
+## Patch workflow
+
+```
+          incoming patch
+                |
+                V
+             original
+                |
+                V
+  Can patch be applied or ported?
+                |
+          No    |   Yes
+          +-----+-----+
+          |           |
+          V           V
+      postponed   committed
+```
+
 ## Usage:
 
 `patchiman [OPTIONS] COMMAND [ARGS]...`
