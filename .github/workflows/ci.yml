@@ -1,8 +1,8 @@
 on: [push, pull_request]
 name: CI
 jobs:
-  if: false # temporarily disable ci
   build:
+    if: false # temporarily disable ci
     name: "Build on Racket '${{ matrix.racket-version }}' (${{ matrix.racket-variant }})"
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental || false }}
